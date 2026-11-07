@@ -1,0 +1,23 @@
+{
+  "name": "piezas-cnn",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Clasificador de piezas buenas/malas con CNN + panel web (captura, entrenamiento y línea de producción)",
+  "scripts": {
+    "dev": "concurrently -n api,web,ml -c blue,magenta,cyan \"pnpm dev:api\" \"pnpm dev:web\" \"pnpm dev:ml\"",
+    "dev:api": "pnpm --filter @piezas-cnn/server dev",
+    "dev:web": "pnpm --filter @piezas-cnn/web dev",
+    "dev:ml": ".venv/bin/python -m uvicorn inference_service:app --app-dir src --host 127.0.0.1 --port 8000 --reload",
+    "build": "pnpm --filter @piezas-cnn/web build && pnpm --filter @piezas-cnn/server typecheck",
+    "start": "pnpm --filter @piezas-cnn/server start",
+    "typecheck": "pnpm --filter @piezas-cnn/web build && pnpm --filter @piezas-cnn/server typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

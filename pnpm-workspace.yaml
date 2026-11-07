@@ -1,0 +1,10 @@
+packages:
+  - "web"
+  - "server"
+
+# Permite scripts postinstall (esbuild usa uno para su binario)
+onlyBuiltDependencies:
+  - esbuild
+
+allowBuilds:
+  esbuild: true
