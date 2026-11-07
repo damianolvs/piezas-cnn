@@ -8,7 +8,7 @@
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 ROOT = Path(__file__).resolve().parent.parent

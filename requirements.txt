@@ -5,7 +5,6 @@ pillow
 matplotlib
 scikit-learn
 roboflow
-opencv-python
 # Servicio de inferencia (FastAPI) y ensamblado de datasets
 fastapi>=0.110
 uvicorn[standard]>=0.29

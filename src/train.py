@@ -1,12 +1,13 @@
 # ARCHIVO: train.py
 # QUÉ HACE: entrena la CNN y guarda el mejor modelo en models/model.pt.
-# - Usa CrossEntropyLoss con pesos de clase, optimizador Adam y scheduler ReduceLROnPlateau.
+# - Usa CrossEntropyLoss con pesos de clase + label smoothing, AdamW y ReduceLROnPlateau.
 # - En cada época mide loss y accuracy en train y en valid.
-# - Se queda con la época de mayor accuracy en valid y guarda ahí: los pesos, los nombres de
-#   las clases, el tamaño de entrada y la normalización (para que la demo no se confunda).
+# - Se queda con la época de menor loss en valid (señal más estable que accuracy con valid
+#   pequeño) y guarda ahí: los pesos, las clases, el tamaño de entrada y la normalización.
+# - Early stopping (--patience) para no sobreajustar en datasets pequeños.
 # - Genera reports/curves.png (curvas de loss y accuracy) y avisa si detecta overfitting.
 # - OJO: sobrescribe models/model.pt cada vez que se corre.
-"""Paso 4: entrenamiento.  python src/train.py [--epochs 200] [--dataset RUTA]"""
+"""Paso 4: entrenamiento.  python src/train.py [--epochs 200] [--dataset RUTA] [--patience 15]"""
 import argparse
 import copy
 import random
@@ -38,6 +39,7 @@ def run_epoch(model, loader, criterion, device, optimizer=None):
             if train:
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
             loss_sum += loss.item() * len(y)
             correct += (out.argmax(1) == y).sum().item()
@@ -53,6 +55,10 @@ def main():
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--size", type=int, default=INPUT_SIZE)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--patience", type=int, default=15,
+                    help="épocas sin mejora de val_loss antes de parar (0 = desactiva)")
+    ap.add_argument("--label-smoothing", type=float, default=0.1,
+                    help="suavizado de etiquetas para calibrar la confianza")
     args = ap.parse_args()
 
     random.seed(args.seed)
@@ -68,23 +74,33 @@ def main():
     print("Parámetros:", sum(p.numel() for p in model.parameters()))
     weights = class_weights(ds["train"]).to(device)
     print("Pesos de clase:", [round(w, 2) for w in weights.tolist()])
-    criterion = nn.CrossEntropyLoss(weight=weights)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=args.label_smoothing)
+    # Pérdida de validación sin pesos ni suavizado: señal más limpia y estable para
+    # seleccionar la mejor época cuando el conjunto de validación es pequeño.
+    criterion_val = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5, patience=5)
 
     hist = {k: [] for k in ("train_loss", "train_acc", "val_loss", "val_acc")}
     best = {"val_loss": float("inf"), "val_acc": -1.0, "epoch": 0, "state": None, "train_acc": 0.0}
 
+    bad_epochs = 0
     for epoch in range(1, args.epochs + 1):
         tl, ta = run_epoch(model, loaders["train"], criterion, device, optimizer)
-        vl, va = run_epoch(model, loaders["valid"], criterion, device)
+        vl, va = run_epoch(model, loaders["valid"], criterion_val, device)
         scheduler.step(vl)
         for k, v in zip(hist, (tl, ta, vl, va)):
             hist[k].append(v)
-        # mejor = mayor accuracy en valid; desempata por menor loss
-        if (va, -vl) > (best["val_acc"], -best["val_loss"]):
+        # mejor = menor loss en valid (más estable que accuracy con valid diminuto)
+        if vl < best["val_loss"] - 1e-4:
             best.update(val_loss=vl, val_acc=va, epoch=epoch, train_acc=ta,
                         state=copy.deepcopy(model.state_dict()))
+            bad_epochs = 0
+        else:
+            bad_epochs += 1
+            if args.patience > 0 and bad_epochs >= args.patience:
+                print(f"Early stopping en época {epoch} (patience {args.patience})")
+                break
         if epoch % 5 == 0 or epoch == 1:
             print(f"ep {epoch:3d} | train loss {tl:.3f} acc {ta:.3f} | valid loss {vl:.3f} acc {va:.3f}")
 
@@ -99,6 +115,7 @@ def main():
         "widths": WIDTHS,
         "best_epoch": best["epoch"],
         "val_acc": best["val_acc"],
+        "val_loss": best["val_loss"],
     }, MODEL_PATH)
     print(f"\nMejor época {best['epoch']}: valid acc {best['val_acc']:.3f}, loss {best['val_loss']:.3f}")
     print("Modelo guardado en", MODEL_PATH)
