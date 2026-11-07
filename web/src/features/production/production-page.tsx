@@ -134,11 +134,12 @@ export function ProductionPage() {
 
           {prediction && camera.status === "ready" && (
             <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
-              <ClassBadge className={prediction.class_name} />
-              {prediction.unsure && (
-                <span className="rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium text-amber-500">
-                  No seguro
+              {prediction.unsure ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  <CircleDot className="size-3.5" /> No seguro
                 </span>
+              ) : (
+                <ClassBadge className={prediction.class_name} />
               )}
             </div>
           )}
@@ -217,9 +218,22 @@ export function ProductionPage() {
             {prediction && (
               <>
                 <div className="flex items-center justify-between">
-                  <ClassBadge className={prediction.class_name} />
+                  {prediction.unsure ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-600 dark:text-amber-400">
+                      <CircleDot className="size-3.5" /> No seguro
+                    </span>
+                  ) : (
+                    <ClassBadge className={prediction.class_name} />
+                  )}
                   <span className="text-2xl font-semibold tabular-nums">{formatPercent(prediction.confidence, 1)}</span>
                 </div>
+                {prediction.unsure && (
+                  <p className="text-xs text-muted-foreground">
+                    Clase más probable: «{prediction.class_name}» ({formatPercent(prediction.confidence, 1)}), por debajo
+                    del umbral de {Math.round(prediction.threshold * 100)}%. El modelo no reconoce el objeto con
+                    seguridad.
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   {sortedProbabilities.map(([className, probability]) => (
