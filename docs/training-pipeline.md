@@ -57,8 +57,9 @@ y no se asigna en silencio.
 | `--seed` | 0 | ≥ 0 |
 
 - Pérdida `CrossEntropyLoss` con pesos por clase (`class_weights` = `N / (C·n_c)`).
-- Optimizador Adam (`weight_decay=1e-4`), scheduler `ReduceLROnPlateau` (factor 0.5, patience 5).
-- Guarda el mejor estado por `(val_acc, -val_loss)`; escribe `reports/curves.png` y avisa si detecta
+- Optimizador AdamW (`weight_decay=1e-4`) con recorte de gradiente (`clip_grad_norm_`, máx 1.0), scheduler `ReduceLROnPlateau` (factor 0.5, patience 5).
+- Pérdida con label smoothing (`--label-smoothing`, default 0.1) en train; validación con `CrossEntropyLoss` sin pesos ni suavizado.
+- Guarda el mejor estado por `val_loss` (con early stopping real vía `--patience`, default 15); escribe `reports/curves.png` y avisa si detecta
   sobreajuste.
 
 ### Salida parseable
