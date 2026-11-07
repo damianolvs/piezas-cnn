@@ -5,6 +5,8 @@ import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { createMlRouter } from "./ml.js"
+import { TrainingJobManager } from "./jobs.js"
 
 // ---------------------------------------------------------------------------
 // Rutas base. `server/src/index.ts` -> `server` -> raíz del repositorio.
@@ -139,13 +141,18 @@ function timestamp(date = new Date()): string {
   )
 }
 
-async function uniqueSessionId(base: string): Promise<string> {
+async function createSessionDir(base: string): Promise<string> {
+  // Crea la carpeta de forma ATÓMICA (mkdir + reintento en EEXIST) para evitar la carrera
+  // TOCTOU entre `fs.access` y `fs.mkdir` cuando dos sesiones colisionan en el mismo segundo.
   for (let attempt = 1; attempt < 100; attempt += 1) {
     const id = attempt === 1 ? base : `${base}-${attempt}`
+    const dir = sessionDir(id)
     try {
-      await fs.access(path.join(DATASETS_DIR, id))
-    } catch {
+      await fs.mkdir(dir, { recursive: false })
       return id
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") continue
+      throw error
     }
   }
   throw httpError(409, "No se pudo generar un nombre de carpeta único")
@@ -223,9 +230,8 @@ app.post("/api/sessions", async (req, res) => {
     label: String(cameraRaw.label ?? "").slice(0, 200),
   }
 
-  const id = await uniqueSessionId(`${slugify(label)}-${timestamp()}`)
+  const id = await createSessionDir(`${slugify(label)}-${timestamp()}`)
   const dir = sessionDir(id)
-  await fs.mkdir(dir, { recursive: false })
 
   const metadata: SessionMetadata = {
     id,
@@ -311,6 +317,17 @@ app.patch("/api/sessions/:id", async (req, res) => {
 })
 
 // ---------------------------------------------------------------------------
+// Rutas ML (modelo, inferencia, datasets, entrenamiento)
+// ---------------------------------------------------------------------------
+const jobs = new TrainingJobManager(ROOT)
+app.use("/api", createMlRouter({ root: ROOT, jobs }))
+
+// 404 JSON para cualquier ruta /api desconocida (antes del fallback SPA).
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Ruta no encontrada" })
+})
+
+// ---------------------------------------------------------------------------
 // Frontend construido (producción)
 // ---------------------------------------------------------------------------
 if (existsSync(DIST_DIR)) {
@@ -350,3 +367,11 @@ app.listen(PORT, () => {
     console.log("Modo desarrollo: abre http://localhost:5173 (pnpm dev)")
   }
 })
+
+// Al apagar el servidor, matar los jobs de entrenamiento en curso.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    jobs.shutdown()
+    process.exit(0)
+  })
+}
