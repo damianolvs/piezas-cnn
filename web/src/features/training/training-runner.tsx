@@ -137,7 +137,7 @@ export function TrainingRunner() {
             </Button>
 
             {activeJob && (
-              <p className="text-center text-[11px] text-muted-foreground">
+              <p className="text-center text-xs text-muted-foreground">
                 Solo se permite un entrenamiento a la vez.
               </p>
             )}
@@ -179,7 +179,7 @@ export function TrainingRunner() {
                         <span className="truncate text-sm font-medium">{job.dataset}</span>
                         <Badge variant={STATUS_VARIANT[job.status]}>{STATUS_LABEL[job.status]}</Badge>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {job.params.epochs} épocas · lr {job.params.lr} · lote {job.params.batchSize}
                       </p>
                     </div>
@@ -192,7 +192,7 @@ export function TrainingRunner() {
 
                   {(job.status === "running" || job.status === "queued") && (
                     <div className="mt-2 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
                           {job.status === "running" ? `Época ${job.epoch}/${job.totalEpochs}` : "Esperando turno…"}
                         </span>
@@ -205,7 +205,7 @@ export function TrainingRunner() {
                   {job.error && <p className="mt-2 text-xs text-destructive">{job.error}</p>}
 
                   {job.log.length > 0 && (
-                    <ScrollArea className="mt-2 h-24 rounded-md bg-muted/50 p-2 font-mono text-[11px] leading-relaxed">
+                    <ScrollArea className="mt-2 h-24 rounded-md bg-muted/50 p-2 font-mono text-xs leading-relaxed">
                       {job.log.map((line, index) => (
                         <p key={index} className={cn("whitespace-pre-wrap", line.includes("error") || line.includes("Error") ? "text-destructive" : "text-muted-foreground")}>
                           {line}

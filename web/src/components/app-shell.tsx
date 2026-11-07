@@ -45,7 +45,7 @@ export function AppShell({
           </span>
           <div className="leading-tight">
             <p className="text-sm font-semibold tracking-tight">Piezas CNN</p>
-            <p className="text-[11px] text-muted-foreground">Clasificador de piezas</p>
+            <p className="text-xs text-muted-foreground">Clasificador de piezas</p>
           </div>
         </div>
 
@@ -58,6 +58,7 @@ export function AppShell({
                 key={item.key}
                 type="button"
                 onClick={() => onNavigate(item.key)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
                   active
@@ -68,7 +69,7 @@ export function AppShell({
                 <Icon className="size-4 shrink-0" strokeWidth={2} />
                 <span className="flex flex-col leading-tight">
                   <span>{item.label}</span>
-                  <span className={cn("text-[11px]", active ? "text-muted-foreground" : "text-muted-foreground/70")}>
+                  <span className={cn("text-xs", active ? "text-muted-foreground" : "text-muted-foreground/70")}>
                     {item.description}
                   </span>
                 </span>
@@ -91,7 +92,7 @@ export function AppShell({
                 {loading ? "Consultando modelo…" : available ? "Modelo listo" : "Modelo sin conexión"}
               </p>
               {model && (
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="truncate text-xs text-muted-foreground">
                   {model.classes.length} clases · umbral {Math.round(model.threshold * 100)}%
                 </p>
               )}
@@ -102,14 +103,45 @@ export function AppShell({
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between border-b border-border px-6">
-          <div>
-            <h1 className="text-sm font-semibold tracking-tight">{meta.title}</h1>
-            <p className="text-xs text-muted-foreground">{meta.subtitle}</p>
+        <header className="flex h-14 items-center justify-between gap-3 border-b border-border px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background lg:hidden">
+              <ScanLine className="size-4" strokeWidth={2.25} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold tracking-tight">{meta.title}</h1>
+              <p className="truncate text-xs text-muted-foreground">{meta.subtitle}</p>
+            </div>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
       </div>
+
+      {/* Navegación inferior (móvil): el sidebar se oculta en <lg */}
+      <nav
+        aria-label="Navegación principal"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-border bg-background/95 backdrop-blur lg:hidden"
+      >
+        {NAV.map((item) => {
+          const Icon = item.icon
+          const active = item.key === moduleKey
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onNavigate(item.key)}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors",
+                active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="size-5" strokeWidth={active ? 2.25 : 2} />
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
+      </nav>
     </div>
   )
 }

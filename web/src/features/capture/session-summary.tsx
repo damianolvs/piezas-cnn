@@ -62,15 +62,15 @@ export function SessionSummary({ summary, onReset }: SessionSummaryProps) {
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{formatNumber(summary.captured)}</p>
-            <p className="text-[11px] text-muted-foreground">Guardadas</p>
+            <p className="text-xs text-muted-foreground">Guardadas</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{formatBytes(summary.bytes)}</p>
-            <p className="text-[11px] text-muted-foreground">Peso total</p>
+            <p className="text-xs text-muted-foreground">Peso total</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{formatDuration(summary.durationMs)}</p>
-            <p className="text-[11px] text-muted-foreground">Duración</p>
+            <p className="text-xs text-muted-foreground">Duración</p>
           </div>
         </div>
 

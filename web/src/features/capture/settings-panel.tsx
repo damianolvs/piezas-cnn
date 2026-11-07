@@ -71,7 +71,7 @@ export function SettingsPanel({
               disabled={disabled}
               onChange={(event) => onLabelChange(event.target.value)}
             />
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               La etiqueta se usa para clasificar la sesión al ensamblar el dataset.
             </p>
           </div>
@@ -172,7 +172,7 @@ export function SettingsPanel({
             <Camera className="size-4 text-muted-foreground" />
             <div className="leading-tight">
               <p className="text-sm">Escala de grises</p>
-              <p className="text-[11px] text-muted-foreground">El modelo se entrena sobre imágenes en gris</p>
+              <p className="text-xs text-muted-foreground">El modelo se entrena sobre imágenes en gris</p>
             </div>
           </div>
           <Switch
@@ -188,7 +188,7 @@ export function SettingsPanel({
             {muted ? <VolumeX className="size-4 text-muted-foreground" /> : <Volume2 className="size-4 text-muted-foreground" />}
             <div className="leading-tight">
               <p className="text-sm">Sonido</p>
-              <p className="text-[11px] text-muted-foreground">Beeps de cuenta regresiva y disparo</p>
+              <p className="text-xs text-muted-foreground">Beeps de cuenta regresiva y disparo</p>
             </div>
           </div>
           <Switch

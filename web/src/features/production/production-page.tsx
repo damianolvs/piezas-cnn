@@ -50,6 +50,29 @@ export function ProductionPage() {
   const [error, setError] = useState<string | null>(null)
   const inFlightRef = useRef(false)
 
+  // Asigna el stream al <video> en cuanto la cámara está lista. Antes se usaba
+  // onLoadedMetadata, que nunca llega a dispararse porque el video no tiene
+  // fuente hasta que ese mismo handler asigna srcObject.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return undefined
+    video.srcObject = camera.stream ?? null
+    if (!camera.stream) {
+      return () => {
+        video.srcObject = null
+      }
+    }
+    const play = () => {
+      video.play().catch(() => {})
+    }
+    if (video.readyState >= 2) play()
+    else video.addEventListener("loadedmetadata", play, { once: true })
+    return () => {
+      video.removeEventListener("loadedmetadata", play)
+      video.srcObject = null
+    }
+  }, [camera.stream, videoRef])
+
   const runPrediction = useCallback(async () => {
     const video = videoRef.current
     if (!video || !video.videoWidth || inFlightRef.current) return
@@ -91,10 +114,6 @@ export function ProductionPage() {
             autoPlay
             playsInline
             muted
-            onLoadedMetadata={(event) => {
-              event.currentTarget.srcObject = camera.stream
-              event.currentTarget.play().catch(() => {})
-            }}
           />
 
           {camera.status === "requesting" && (
@@ -117,7 +136,7 @@ export function ProductionPage() {
             <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
               <ClassBadge className={prediction.class_name} />
               {prediction.unsure && (
-                <span className="rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-medium text-amber-500">
+                <span className="rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium text-amber-500">
                   No seguro
                 </span>
               )}
@@ -125,7 +144,7 @@ export function ProductionPage() {
           )}
 
           {camera.status === "ready" && (
-            <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-background/70 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur">
+            <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-full bg-background/70 px-2.5 py-1 text-xs text-muted-foreground backdrop-blur">
               {predicting ? <Loader2 className="size-3 animate-spin" /> : <ScanLine className="size-3" />}
               {predicting ? "Clasificando…" : prediction ? `${formatLatency(prediction.latency_ms)}` : "Listo"}
             </div>
@@ -137,6 +156,7 @@ export function ProductionPage() {
             <button
               type="button"
               onClick={() => setMode("continuous")}
+              aria-pressed={mode === "continuous"}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 mode === "continuous" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
@@ -147,6 +167,7 @@ export function ProductionPage() {
             <button
               type="button"
               onClick={() => setMode("snapshot")}
+              aria-pressed={mode === "snapshot"}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 mode === "snapshot" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
@@ -212,7 +233,7 @@ export function ProductionPage() {
                   ))}
                 </div>
 
-                <p className="text-center text-[11px] text-muted-foreground">
+                <p className="text-center text-xs text-muted-foreground">
                   Latencia: {formatLatency(prediction.latency_ms)}
                 </p>
               </>

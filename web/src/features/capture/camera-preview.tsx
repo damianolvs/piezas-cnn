@@ -42,7 +42,7 @@ export function CameraPreview({ videoRef, stream, status, error, onRetry, childr
 
       {status === "ready" && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-          <div className="rounded-lg border border-dashed border-white/20 px-3 py-1 text-[11px] text-white/50">
+          <div className="rounded-lg border border-dashed border-white/20 px-3 py-1 text-xs text-white/50">
             zona de captura
           </div>
         </div>

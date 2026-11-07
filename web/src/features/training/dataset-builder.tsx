@@ -84,7 +84,7 @@ export function DatasetBuilder() {
                 placeholder="ej. piezas-v1"
                 onChange={(event) => setName(event.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, "-"))}
               />
-              <p className="text-[11px] text-muted-foreground">Solo minúsculas, números y guiones.</p>
+              <p className="text-xs text-muted-foreground">Solo minúsculas, números y guiones.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -112,7 +112,7 @@ export function DatasetBuilder() {
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div className="leading-tight">
                 <p className="text-sm">Sobrescribir</p>
-                <p className="text-[11px] text-muted-foreground">Reemplazar el dataset si ya existe</p>
+                <p className="text-xs text-muted-foreground">Reemplazar el dataset si ya existe</p>
               </div>
               <Switch checked={force} onCheckedChange={setForce} aria-label="Sobrescribir dataset" />
             </div>

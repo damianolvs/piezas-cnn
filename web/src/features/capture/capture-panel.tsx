@@ -72,15 +72,15 @@ export function CapturePanel({ phase, captured, total, elapsedMs, size, disabled
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{formatNumber(captured)}</p>
-            <p className="text-[11px] text-muted-foreground">Capturadas</p>
+            <p className="text-xs text-muted-foreground">Capturadas</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{formatNumber(remaining)}</p>
-            <p className="text-[11px] text-muted-foreground">Restantes</p>
+            <p className="text-xs text-muted-foreground">Restantes</p>
           </div>
           <div className="rounded-lg bg-muted/50 p-3 text-center">
             <p className="text-lg font-semibold tabular-nums">{size}px</p>
-            <p className="text-[11px] text-muted-foreground">Resolución</p>
+            <p className="text-xs text-muted-foreground">Resolución</p>
           </div>
         </div>
 
@@ -93,7 +93,7 @@ export function CapturePanel({ phase, captured, total, elapsedMs, size, disabled
           <Square /> Detener y guardar
         </Button>
 
-        <p className="text-center text-[11px] text-muted-foreground">
+        <p className="text-center text-xs text-muted-foreground">
           {phase === "finishing" ? "Espera mientras se finaliza la sesión…" : "Las fotos se suben en tiempo real."}
         </p>
       </CardContent>

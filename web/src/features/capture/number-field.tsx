@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 
 interface NumberFieldProps {
@@ -26,6 +26,7 @@ export function NumberField({
 }: NumberFieldProps) {
   const [draft, setDraft] = useState(String(value))
   const focusedRef = useRef(false)
+  const id = useId()
 
   // Sincroniza el draft con el valor externo solo cuando el campo no está
   // enfocado, para no pisar lo que el usuario está escribiendo (p.ej. "2.").
@@ -62,9 +63,10 @@ export function NumberField({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</label>
       <div className="relative">
         <Input
+          id={id}
           type="number"
           inputMode="decimal"
           min={min}
