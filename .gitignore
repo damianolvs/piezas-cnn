@@ -1,6 +1,19 @@
+# Python
 .venv/
 data/
 __pycache__/
 *.pyc
 .env
 reports/
+
+# Node / pnpm
+node_modules/
+web/dist/
+server/dist/
+
+# Capturas crudas (datasets de sesiones)
+datasets/
+
+# Sistema
+.DS_Store
+*.log
