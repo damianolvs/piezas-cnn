@@ -89,21 +89,19 @@ export function DatasetBuilder() {
 
             <div className="grid grid-cols-2 gap-3">
               <NumberField
-                label="Validación"
+                label="Validación (0–1)"
                 value={validRatio}
                 min={0.05}
                 max={0.4}
                 step={0.05}
-                suffix="%"
                 onChange={(value) => setValidRatio(value)}
               />
               <NumberField
-                label="Prueba"
+                label="Prueba (0–1)"
                 value={testRatio}
                 min={0.05}
                 max={0.4}
                 step={0.05}
-                suffix="%"
                 onChange={(value) => setTestRatio(value)}
               />
               <NumberField label="Semilla" value={seed} min={0} max={9999} integer onChange={(value) => setSeed(value)} />
@@ -141,7 +139,7 @@ export function DatasetBuilder() {
                 </div>
                 {summary.quarantined.length > 0 && (
                   <p className="text-amber-600 dark:text-amber-400">
-                    Etiquetas sin clasificar: {summary.quarantined.join(", ")}
+                    Etiquetas sin clasificar: {summary.quarantined.map((q) => q.label).join(", ")}
                   </p>
                 )}
               </div>

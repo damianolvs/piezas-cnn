@@ -108,7 +108,7 @@ Construye un dataset desde las sesiones. Body:
   "ok": true,
   "summary": {
     "name": "mi-dataset", "sessions_total": 30, "sessions_used": 28,
-    "quarantined": ["etiqueta-ambigua-…"], "images_copied": 1400,
+    "quarantined": [{ "id": "etiqueta-ambigua-…", "label": "etiqueta ambigua" }], "images_copied": 1400,
     "splits": { "train": {}, "valid": {}, "test": {} },
     "per_class": { "Good-part": 28, "No-Piece-Detected": 0, "Scrap": 0 }
   }

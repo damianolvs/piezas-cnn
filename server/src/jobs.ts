@@ -83,6 +83,8 @@ export class TrainingJobManager {
     if (!job) return false
     if (job.status === "running") {
       this.children.get(id)?.kill("SIGTERM")
+      job.status = "cancelled"
+      this._emit(id)
     } else if (job.status === "queued") {
       this.queue = this.queue.filter((q) => q !== id)
       job.status = "cancelled"
@@ -188,7 +190,8 @@ export class TrainingJobManager {
       } else if (code === 0) {
         job.status = "completed"
         job.progress = 1
-        job.epoch = job.totalEpochs
+        // No forzamos job.epoch = totalEpochs: con early stopping el último
+        // valor parseado de "ep N |" refleja mejor dónde se detuvo el modelo.
       } else {
         job.status = "failed"
         job.error = signal ? `Terminado por señal ${signal}` : `Proceso terminó con código ${code}`

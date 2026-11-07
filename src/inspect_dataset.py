@@ -96,9 +96,9 @@ def main():
         for c in classes:
             if counts[s][c] == 0:
                 print(f"AVISO: {s}/{c} está vacío")
-    if "Good-Part" in tot and "Scrap" in tot and min(tot["Good-Part"], tot["Scrap"]):
-        ratio = max(tot["Good-Part"], tot["Scrap"]) / min(tot["Good-Part"], tot["Scrap"])
-        print(f"Relación Good-Part/Scrap: {ratio:.2f}x" + ("  -> desbalance, usar pesos de clase" if ratio > 1.5 else ""))
+    if "Good-part" in tot and "Scrap" in tot and min(tot["Good-part"], tot["Scrap"]):
+        ratio = max(tot["Good-part"], tot["Scrap"]) / min(tot["Good-part"], tot["Scrap"])
+        print(f"Relación Good-part/Scrap: {ratio:.2f}x" + ("  -> desbalance, usar pesos de clase" if ratio > 1.5 else ""))
 
     # 2) Tamaños y modos
     sizes, modes = Counter(), Counter()

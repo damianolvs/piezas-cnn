@@ -89,7 +89,7 @@ export interface DatasetBuildSummary {
   name: string
   sessions_total: number
   sessions_used: number
-  quarantined: string[]
+  quarantined: { id: string; label: string }[]
   images_copied: number
   splits: {
     train: SplitCounts

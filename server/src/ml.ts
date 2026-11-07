@@ -106,6 +106,9 @@ export function createMlRouter({ root, jobs }: Deps): Router {
 
   router.get("/datasets/:name", async (req, res) => {
     const name = String(req.params.name)
+    if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(name)) {
+      throw Object.assign(new Error("Nombre de dataset inválido"), { status: 400 })
+    }
     if (!datasetExists(root, name)) throw Object.assign(new Error("Dataset no encontrado"), { status: 404 })
     res.json({ dataset: await scanDataset(root, name) })
   })
