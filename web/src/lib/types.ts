@@ -63,8 +63,10 @@ export interface ModelInfo {
 export interface Prediction {
   class_name: string
   confidence: number
-  unsure: boolean
+  margin: number
+  unknown: boolean
   threshold: number
+  margin_threshold: number
   probabilities: Record<string, number>
   latency_ms: number
 }

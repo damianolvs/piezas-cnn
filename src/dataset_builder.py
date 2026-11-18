@@ -27,7 +27,11 @@ DATA_DIR = ROOT / "data"
 
 # Clases canónicas (DEBEN coincidir con las carpetas que ImageFolder ordena alfabéticamente
 # y, por tanto, con el class_to_idx del checkpoint: Good-part=0, No-Piece-Detected=1, Scrap=2).
-CLASSES = ["Good-part", "No-Piece-Detected", "Scrap"]
+BASE_CLASSES = ["Good-part", "No-Piece-Detected", "Scrap"]
+# Clase opcional para objetos que no encajan en ninguna categoría. Solo se entrena
+# si existen sesiones etiquetadas como desconocidas (p.ej. "desconocido").
+UNKNOWN_CLASS = "Unknown"
+CLASSES = [*BASE_CLASSES, UNKNOWN_CLASS]
 
 
 def normalize(value: str) -> str:
@@ -59,9 +63,15 @@ def classify_label(label: str) -> str | None:
         "good", "buen", "buena", "bueno", "ok", "complet", "entera", "entero",
         "correcta", "correcto", "sana", "sano", "valida", "valido", "apta", "apto",
     ]
+    unknown = [
+        "desconocid", "unknown", "indefinid", "otro", "otra",
+        "ninguna", "ninguno", "dudoso", "dudosa", "no-reconoc",
+    ]
 
     if any(k in norm for k in no_piece):
         return "No-Piece-Detected"
+    if any(k in norm for k in unknown):
+        return UNKNOWN_CLASS
     if any(k in norm for k in scrap):
         return "Scrap"
     if any(k in norm for k in good) or "pieza" in norm or "part" in norm:
@@ -135,12 +145,16 @@ def build(name: str, sessions_dir=SESSIONS_DIR, out_root=DATA_DIR,
         else:
             by_class[s["class"]].append(s)
 
+    # Solo entrenamos con las clases que realmente tienen sesiones (evita carpetas
+    # vacías que harían fallar a ImageFolder y permite que "Unknown" sea opcional).
+    active_classes = [cls for cls in CLASSES if by_class.get(cls)]
+
     rng = random.Random(seed)
     assignment: dict[str, str] = {}  # session id -> split
     split_counts: dict[str, dict[str, int]] = {"train": {}, "valid": {}, "test": {}}
     manifest: dict[str, dict] = {}
 
-    for cls in CLASSES:
+    for cls in active_classes:
         group = by_class.get(cls, [])
         train, valid, test = _partition(group, valid_ratio, test_ratio, rng)
         for bucket, name_split in ((train, "train"), (valid, "valid"), (test, "test")):
@@ -155,7 +169,7 @@ def build(name: str, sessions_dir=SESSIONS_DIR, out_root=DATA_DIR,
     if not dry_run:
         if out_dir.exists():
             shutil.rmtree(out_dir)
-        for cls in CLASSES:
+        for cls in active_classes:
             for split in ("train", "valid", "test"):
                 (out_dir / split / cls).mkdir(parents=True, exist_ok=True)
         for s in all_sessions:
@@ -172,7 +186,7 @@ def build(name: str, sessions_dir=SESSIONS_DIR, out_root=DATA_DIR,
             json.dumps({
                 "name": name, "seed": seed,
                 "valid_ratio": valid_ratio, "test_ratio": test_ratio,
-                "classes": CLASSES,
+                "classes": active_classes,
                 "sessions": manifest,
             }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

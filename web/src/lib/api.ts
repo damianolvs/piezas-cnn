@@ -113,9 +113,11 @@ export function getModel() {
   return request<ModelInfo>("/api/model")
 }
 
-export function predict(blob: Blob) {
+export function predict(blob: Blob, options?: { threshold?: number; margin?: number }) {
   const form = new FormData()
   form.append("file", blob, "frame.jpg")
+  if (options?.threshold !== undefined) form.append("threshold", String(options.threshold))
+  if (options?.margin !== undefined) form.append("margin", String(options.margin))
   return request<Prediction>("/api/predict", { method: "POST", body: form }, 30_000)
 }
 

@@ -88,6 +88,13 @@ export function createMlRouter({ root, jobs }: Deps): Router {
     if (!req.file) throw Object.assign(new Error("Falta la imagen"), { status: 400 })
     const form = new FormData()
     form.append("file", new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname)
+    // Umbrales opcionales enviados por el cliente (multipart text fields).
+    if (req.body?.threshold !== undefined && req.body.threshold !== "") {
+      form.append("threshold", String(req.body.threshold))
+    }
+    if (req.body?.margin !== undefined && req.body.margin !== "") {
+      form.append("margin", String(req.body.margin))
+    }
     const result = await forwardToFastAPI(`${FASTAPI_URL}/predict`, { method: "POST", body: form })
     res.json(result)
   })
