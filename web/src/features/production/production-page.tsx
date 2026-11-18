@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Camera as CameraIcon, CircleDot, CircleHelp, Loader2, ScanLine, VideoOff } from "lucide-react"
+import { Camera as CameraIcon, CircleDot, CircleHelp, Loader2, ScanLine, ScanEye, VideoOff } from "lucide-react"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -84,6 +85,8 @@ export function ProductionPage() {
   const [predicting, setPredicting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rejection, setRejection] = useState<RejectionSettings>(loadRejection)
+  const [diagnostic, setDiagnostic] = useState<{ image: string; path: string; dir: string } | null>(null)
+  const [diagnosing, setDiagnosing] = useState(false)
   const inFlightRef = useRef(false)
 
   useEffect(() => {
@@ -127,6 +130,38 @@ export function ProductionPage() {
     } finally {
       inFlightRef.current = false
       setPredicting(false)
+    }
+  }, [rejection.threshold, rejection.margin])
+
+  const runDiagnostic = useCallback(async () => {
+    const video = videoRef.current
+    if (!video || !video.videoWidth) return
+    setDiagnosing(true)
+    try {
+      const blob = await snapshotFrame(video, canvasRef.current)
+      if (!blob) return
+      const result = await predict(blob, {
+        threshold: rejection.threshold,
+        margin: rejection.margin,
+        saveDebug: true,
+      })
+      setPrediction(result)
+      if (result.debug) {
+        setDiagnostic({
+          image: result.debug.preprocessed_data_url,
+          path: result.debug.preprocessed,
+          dir: result.debug.dir,
+        })
+        toast.success("Imagen de diagnóstico guardada", {
+          description: `Gris 160×160 · ${result.debug.preprocessed}`,
+        })
+      } else {
+        toast.error("El servicio no devolvió la imagen de diagnóstico")
+      }
+    } catch (diagnosticError) {
+      toast.error(diagnosticError instanceof Error ? diagnosticError.message : "Error al guardar el diagnóstico")
+    } finally {
+      setDiagnosing(false)
     }
   }, [rejection.threshold, rejection.margin])
 
@@ -204,11 +239,20 @@ export function ProductionPage() {
             </button>
           </div>
 
-          {mode === "snapshot" && (
-            <Button variant="outline" onClick={() => void runPrediction()} disabled={camera.status !== "ready" || predicting}>
-              <CameraIcon /> Clasificar
+          <div className="flex items-center gap-2">
+            {mode === "snapshot" && (
+              <Button variant="outline" onClick={() => void runPrediction()} disabled={camera.status !== "ready" || predicting}>
+                <CameraIcon /> Clasificar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => void runDiagnostic()}
+              disabled={camera.status !== "ready" || diagnosing}
+            >
+              {diagnosing ? <Loader2 className="animate-spin" /> : <ScanEye />} Comprobar grises
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
@@ -275,6 +319,25 @@ export function ProductionPage() {
             )}
           </CardContent>
         </Card>
+
+        {diagnostic && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Imagen que ve el modelo</CardTitle>
+              <CardDescription>Preprocesado exacto: escala de grises, 160×160, normalizado.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <img
+                src={diagnostic.image}
+                alt="Imagen en escala de grises que recibe el modelo"
+                className="mx-auto w-full max-w-[200px] rounded-lg border border-border"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <p className="break-all text-center text-xs text-muted-foreground">{diagnostic.path}</p>
+              <p className="break-all text-center text-xs text-muted-foreground/70">Carpeta: {diagnostic.dir}</p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

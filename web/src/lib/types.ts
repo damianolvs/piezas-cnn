@@ -69,6 +69,12 @@ export interface Prediction {
   margin_threshold: number
   probabilities: Record<string, number>
   latency_ms: number
+  debug?: {
+    dir: string
+    raw: string
+    preprocessed: string
+    preprocessed_data_url: string
+  } | null
 }
 
 // --- Datasets ----------------------------------------------------------------

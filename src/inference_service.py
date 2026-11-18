@@ -19,10 +19,14 @@
 #   .venv/bin/python -m uvicorn inference_service:app --app-dir src --host 127.0.0.1 --port 8000
 # (`--app-dir src` mete src/ en sys.path para poder importar dataset/model/train como top-level,
 #  igual que hacen train.py y evaluate.py).
+import base64
 import io
 import os
+import tempfile
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
 
 import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -44,6 +48,15 @@ def _env_float(name: str, default: float) -> float:
 THRESHOLD = _env_float("UNKNOWN_CONFIDENCE_THRESHOLD", CONFIDENCE_THRESHOLD)
 MARGIN_THRESHOLD = _env_float("UNKNOWN_MARGIN_THRESHOLD", 0.15)
 
+# Carpeta temporal de diagnóstico: aquí se guarda la instantánea cruda y la imagen
+# preprocesada (gris 160x160) EXACTA que recibe el modelo, para comprobar el grayscale.
+_default_debug_dir = (
+    Path("/tmp/piezas-cnn-debug")
+    if Path("/tmp").is_dir()
+    else Path(tempfile.gettempdir()) / "piezas-cnn-debug"
+)
+DEBUG_DIR = Path(os.environ.get("DEBUG_IMAGE_DIR", _default_debug_dir))
+
 # ---------------------------------------------------------------------------
 # Estado global: el modelo se carga una sola vez al arrancar (no por request).
 # ---------------------------------------------------------------------------
@@ -63,6 +76,9 @@ class Prediction(BaseModel):
     margin_threshold: float
     probabilities: dict[str, float]
     latency_ms: float
+    # Solo si save_debug=true: rutas en disco e imagen (data URL) del preprocesado
+    # gris 160x160 que realmente ve el modelo.
+    debug: dict[str, str] | None = None
 
 
 @asynccontextmanager
@@ -122,11 +138,46 @@ def model_info():
     }
 
 
+def _save_debug_snapshot(raw: bytes, tensor: torch.Tensor) -> dict[str, str]:
+    """Guarda la imagen cruda y la preprocesada (gris 160x160) que ve el modelo.
+
+    Devuelve las rutas en disco mas un data URL para mostrarla en la UI sin
+    necesidad de servir archivos desde Express.
+    """
+    DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+
+    raw_path = DEBUG_DIR / f"{stamp}_raw.jpg"
+    raw_path.write_bytes(raw)
+
+    # Des-normaliza el tensor [-1,1] a una imagen 0..255 para verla como la recibe el modelo.
+    mean = torch.tensor(CKPT["mean"]).view(3, 1, 1)
+    std = torch.tensor(CKPT["std"]).view(3, 1, 1)
+    denorm = (tensor * std + mean).clamp(0.0, 1.0)
+    arr = (denorm * 255).round().to(torch.uint8).permute(1, 2, 0).cpu().numpy()
+
+    pre_path = DEBUG_DIR / f"{stamp}_preprocessed_grayscale.png"
+    image = Image.fromarray(arr, mode="RGB")
+    image.save(pre_path)
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    data_url = "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+    return {
+        "dir": str(DEBUG_DIR),
+        "raw": str(raw_path),
+        "preprocessed": str(pre_path),
+        "preprocessed_data_url": data_url,
+    }
+
+
 @app.post("/predict", response_model=Prediction)
 async def predict(
     file: UploadFile = File(...),
     threshold: float | None = Form(None),
     margin: float | None = Form(None),
+    save_debug: bool = Form(False),
 ):
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Modelo no cargado")
@@ -170,6 +221,14 @@ async def predict(
 
     unknown = confidence < threshold_used or margin_value < margin_used
 
+    debug_info = None
+    if save_debug:
+        try:
+            debug_info = _save_debug_snapshot(raw, img)
+            print(f"[inference] diagnostico guardado en {debug_info['preprocessed']}")
+        except Exception as exc:  # nunca romper la inferencia por un fallo de diagnóstico
+            print(f"[inference] no se pudo guardar el diagnostico: {exc}")
+
     return Prediction(
         class_name=class_name,
         confidence=confidence,
@@ -179,4 +238,5 @@ async def predict(
         margin_threshold=margin_used,
         probabilities={c: round(float(p), 4) for c, p in zip(CKPT["classes"], probs)},
         latency_ms=latency_ms,
+        debug=debug_info,
     )

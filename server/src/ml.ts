@@ -95,6 +95,9 @@ export function createMlRouter({ root, jobs }: Deps): Router {
     if (req.body?.margin !== undefined && req.body.margin !== "") {
       form.append("margin", String(req.body.margin))
     }
+    if (req.body?.save_debug !== undefined && req.body.save_debug !== "" && req.body.save_debug !== "false") {
+      form.append("save_debug", "true")
+    }
     const result = await forwardToFastAPI(`${FASTAPI_URL}/predict`, { method: "POST", body: form })
     res.json(result)
   })
