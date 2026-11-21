@@ -11,6 +11,8 @@
     "dev:ml": ".venv/bin/python -m uvicorn inference_service:app --app-dir src --host 127.0.0.1 --port 8000 --reload",
     "build": "pnpm --filter @piezas-cnn/web build && pnpm --filter @piezas-cnn/server typecheck",
     "start": "pnpm --filter @piezas-cnn/server start",
+    "start:https": "HTTPS_CERT=certs/cert.pem HTTPS_KEY=certs/key.pem pnpm start",
+    "gen:certs": "bash scripts/gen-certs.sh",
     "typecheck": "pnpm --filter @piezas-cnn/web build && pnpm --filter @piezas-cnn/server typecheck"
   },
   "devDependencies": {

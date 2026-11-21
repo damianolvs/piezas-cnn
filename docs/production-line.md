@@ -21,8 +21,14 @@ El módulo **Producción** clasifica piezas contra `models/model.pt` usando la c
 
 - La clase con mayor probabilidad se muestra con un **Badge** de color:
   `Good-part` = verde, `Scrap` = ámbar, `No-Piece-Detected` = azul.
-- Si `confidence < threshold` (0.60), el resultado se marca **"No seguro"** (no se fuerza una clase).
-- Se muestran las barras de probabilidad ordenadas y la latencia del servicio.
+- **Rechazo de desconocidos**: si `confidence < threshold` (0.60 por defecto) **o**
+  `margin < margin_threshold` (0.15 por defecto), el resultado se marca como **"Desconocido"** en
+  lugar de forzar una clase. El *margen* es la diferencia entre la probabilidad top-1 y la top-2: un
+  margen pequeño indica que el modelo duda entre dos clases.
+- La tarjeta **"Rechazo de desconocidos"** permite ajustar ambos umbrales en vivo con dos sliders
+  (confianza mínima 30–95 %, margen mínimo 0–50 %); se persisten en `localStorage`
+  (`piezas-cnn.rejection`).
+- Se muestran las barras de probabilidad ordenadas, el margen y la latencia del servicio.
 
 ## Consideraciones de despliegue
 
@@ -30,5 +36,11 @@ El módulo **Producción** clasifica piezas contra `models/model.pt` usando la c
   intervalo del modo continuo si es necesario.
 - **Iluminación**: la inferencia re-normaliza a gris; mantén una iluminación consistente con la
   del dataset de entrenamiento (fondo uniforme).
-- **Umbral**: `CONFIDENCE_THRESHOLD = 0.60` en `src/dataset.py`. Auméntalo para ser más
-  conservador (menos falsos positivos, más "No seguro").
+- **Umbral**: `CONFIDENCE_THRESHOLD = 0.60` en `src/dataset.py` es el valor por defecto; puede
+  sobreescribirse con las variables de entorno `UNKNOWN_CONFIDENCE_THRESHOLD` y
+  `UNKNOWN_MARGIN_THRESHOLD`, o en caliente desde la UI. Súbelo para ser más conservador (menos
+  falsos positivos, más "Desconocido"); bájalo si el modelo está bien entrenado y quieres menos
+  rechazos.
+- **Cerrar el dominio**: "Desconocido" es una red de seguridad, no una solución. Para que la
+  detección sea fiable, reentrena con piezas reales (Captura → dataset builder → entrenamiento) y,
+  opcionalmente, captura ejemplos etiquetados como `desconocido` para añadir una cuarta clase.

@@ -2,7 +2,8 @@ import cors from "cors"
 import express, { type NextFunction, type Request, type Response } from "express"
 import multer from "multer"
 import fs from "node:fs/promises"
-import { existsSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import https from "node:https"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createMlRouter } from "./ml.js"
@@ -66,7 +67,13 @@ interface HttpError extends Error {
 // ---------------------------------------------------------------------------
 const app = express()
 app.disable("x-powered-by")
-app.use(cors({ origin: ["http://localhost:5173", "http://127.0.0.1:5173"] }))
+// Orígenes permitidos para CORS (dev con Vite). configurable por env:
+// CORS_ORIGINS="https://192.168.1.50:3001,http://localhost:5173" o "*".
+const corsOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+app.use(cors({ origin: corsOrigins.includes("*") ? true : corsOrigins }))
 app.use(express.json({ limit: "1mb" }))
 
 const upload = multer({
@@ -360,13 +367,38 @@ app.use((err: HttpError, _req: Request, res: Response, _next: NextFunction) => {
 // ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`API de Piezas CNN en http://localhost:${PORT}`)
+// Las rutas se resuelven contra la raíz del repo: `pnpm start` ejecuta el
+// servidor con CWD en `server/`, así que `certs/cert.pem` relativo fallaría.
+const resolveFromRoot = (value: string) => (path.isAbsolute(value) ? value : path.resolve(ROOT, value))
+const httpsCert = process.env.HTTPS_CERT ? resolveFromRoot(process.env.HTTPS_CERT) : undefined
+const httpsKey = process.env.HTTPS_KEY ? resolveFromRoot(process.env.HTTPS_KEY) : undefined
+
+const onListening = (protocol: "http" | "https") => {
+  console.log(`API de Piezas CNN en ${protocol}://localhost:${PORT}`)
   console.log(`Datasets: ${DATASETS_DIR}`)
+  if (protocol === "http") {
+    console.log(
+      "Aviso: el acceso a la cámara requiere HTTPS o localhost. Para usar la cámara desde otra máquina " +
+        "ejecuta `pnpm gen:certs` y luego `pnpm start:https`.",
+    )
+  }
   if (!existsSync(DIST_DIR)) {
     console.log("Modo desarrollo: abre http://localhost:5173 (pnpm dev)")
   }
-})
+}
+
+// HTTPS opcional: se activa si existen HTTPS_CERT y HTTPS_KEY (autofirmados con
+// `pnpm gen:certs`). Necesario para que getDisplayMedia/getUserMedia funcione
+// al abrir la app por la IP de la red local desde otro dispositivo.
+if (httpsCert && httpsKey && existsSync(httpsCert) && existsSync(httpsKey)) {
+  const server = https.createServer(
+    { cert: readFileSync(httpsCert), key: readFileSync(httpsKey) },
+    app,
+  )
+  server.listen(PORT, () => onListening("https"))
+} else {
+  app.listen(PORT, () => onListening("http"))
+}
 
 // Al apagar el servidor, matar los jobs de entrenamiento en curso.
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

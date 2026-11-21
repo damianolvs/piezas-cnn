@@ -25,11 +25,20 @@ La etiqueta se normaliza (sin acentos, minúsculas, guiones) y se clasifica por 
 | Subcadena | Clase |
 |---|---|
 | `good`, `buen`, `ok`, `complet`, `entera`, `pieza`, `part` | `Good-part` |
-| `scrap`, `mala`, `rota`, `partida`, `defect`, `rechaz`, `dano`, `quebrad` | `Scrap` |
 | `no-piece`, `vacia`, `empty`, `banda`, `nada`, `sin-pieza`, `detect`, `fondo` | `No-Piece-Detected` |
+| `desconocid`, `unknown`, `indefinid`, `otro`, `otra`, `ninguna`, `ninguno`, `dudoso`, `dudosa`, `no-reconoc` | `Unknown` |
+| `scrap`, `mala`, `rota`, `partida`, `defect`, `rechaz`, `dano`, `quebrad` | `Scrap` |
 
 Si no hay coincidencia (o hay conflicto), la sesión va a **cuarentena** (`summary.quarantined`)
 y no se asigna en silencio.
+
+> **Clase `Unknown` (opcional).** Si capturas ejemplos que no deben clasificarse como una pieza
+> buena, mala o banda vacía, etiquétalos con `desconocido`, `otro`, `unknown`, etc. El builder crea
+> entonces una cuarta clase `Unknown`. Solo se materializan las clases que realmente tienen
+> sesiones (`active_classes`), así que `Unknown` es opcional y no rompe datasets de 3 clases. Un
+> modelo con 4 clases puede aprender a rechazar objetos fuera de distribución en vez de forzar
+> `Scrap`/`Good-part`; recuerda que `train.py` y el servicio de inferencia leen las clases del
+> checkpoint, por lo que no hay que tocar código.
 
 ### Reparto de splits
 
