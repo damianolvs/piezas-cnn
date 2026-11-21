@@ -10,6 +10,7 @@ reports/
 node_modules/
 web/dist/
 server/dist/
+web/.vite/
 
 # Capturas crudas (datasets de sesiones)
 datasets/
@@ -17,3 +18,6 @@ datasets/
 # Sistema
 .DS_Store
 *.log
+
+# Certificados TLS locales (autofirmados, no versionar)
+certs/

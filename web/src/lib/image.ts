@@ -57,11 +57,13 @@ export function captureFrame(
 }
 
 // Crea un Blob a partir de un frame concreto del stream para la línea de
-// producción (inferencia). No aplica grises: el servicio de inferencia ya
-// normaliza a gris.
+// producción (inferencia). Recorta el cuadrado central igual que el módulo de
+// captura (las imágenes de entrenamiento son cuadradas) y NO aplica grises: el
+// servicio de inferencia ya normaliza a gris.
 export function snapshotFrame(
   video: HTMLVideoElement,
   canvas?: HTMLCanvasElement | null,
+  size = 640,
 ): Promise<Blob | null> {
   return new Promise((resolve) => {
     const sourceWidth = video.videoWidth
@@ -70,17 +72,23 @@ export function snapshotFrame(
       resolve(null)
       return
     }
+    const side = Math.min(sourceWidth, sourceHeight)
+    const sourceX = Math.round((sourceWidth - side) / 2)
+    const sourceY = Math.round((sourceHeight - side) / 2)
+
     const target = canvas ?? document.createElement("canvas")
-    if (target.width !== sourceWidth || target.height !== sourceHeight) {
-      target.width = sourceWidth
-      target.height = sourceHeight
+    if (target.width !== size || target.height !== size) {
+      target.width = size
+      target.height = size
     }
     const context = target.getContext("2d")
     if (!context) {
       resolve(null)
       return
     }
-    context.drawImage(video, 0, 0)
+    context.imageSmoothingEnabled = true
+    context.imageSmoothingQuality = "high"
+    context.drawImage(video, sourceX, sourceY, side, side, 0, 0, size, size)
     target.toBlob((blob) => resolve(blob), "image/jpeg", 0.92)
   })
 }

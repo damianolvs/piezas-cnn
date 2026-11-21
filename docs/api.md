@@ -25,18 +25,26 @@ Metadatos del checkpoint cargado en el servicio de inferencia.
 ```
 
 ### `POST /api/predict`
-Clasifica una imagen. `multipart/form-data` con el campo `file` (JPEG/PNG/WebP, ≤ 5 MB).
+Clasifica una imagen. `multipart/form-data` con el campo `file` (JPEG/PNG/WebP, ≤ 5 MB) y,
+opcionalmente, `threshold` (confianza mínima, 0–1) y `margin` (margen mínimo top1−top2, 0–1) para
+ajustar la política de rechazo en caliente. Express reenvía ambos a FastAPI.
 
 ```json
 {
   "class_name": "No-Piece-Detected",
   "confidence": 0.9594,
-  "unsure": false,
+  "margin": 0.9261,
+  "unknown": false,
   "threshold": 0.6,
+  "margin_threshold": 0.15,
   "probabilities": { "Good-part": 0.0333, "No-Piece-Detected": 0.9594, "Scrap": 0.0073 },
   "latency_ms": 15.8
 }
 ```
+
+`unknown` es `true` cuando `confidence < threshold` **o** `margin < margin_threshold`: el objeto no
+se parece con suficiente seguridad a ninguna clase conocida. `class_name` sigue siendo el argmax
+crudo, útil para depuración, pero la UI debe mostrar **"Desconocido"** cuando `unknown` es `true`.
 
 ## Sesiones de captura
 

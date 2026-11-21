@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Camera as CameraIcon, CircleDot, Loader2, ScanLine, VideoOff } from "lucide-react"
+import { Camera as CameraIcon, CircleDot, CircleHelp, Loader2, ScanLine, ScanEye, VideoOff } from "lucide-react"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { Slider } from "@/components/ui/slider"
 import { useCamera } from "@/hooks/useCamera"
 import { useModel } from "@/hooks/useModel"
 import { predict } from "@/lib/api"
@@ -13,6 +15,31 @@ import type { Prediction } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type Mode = "continuous" | "snapshot"
+
+const REJECTION_KEY = "piezas-cnn.rejection"
+const DEFAULT_THRESHOLD = 0.6
+const DEFAULT_MARGIN = 0.15
+
+interface RejectionSettings {
+  threshold: number
+  margin: number
+}
+
+function loadRejection(): RejectionSettings {
+  try {
+    const raw = localStorage.getItem(REJECTION_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<RejectionSettings>
+      return {
+        threshold: typeof parsed.threshold === "number" ? parsed.threshold : DEFAULT_THRESHOLD,
+        margin: typeof parsed.margin === "number" ? parsed.margin : DEFAULT_MARGIN,
+      }
+    }
+  } catch {
+    // valores por defecto si el JSON es inválido
+  }
+  return { threshold: DEFAULT_THRESHOLD, margin: DEFAULT_MARGIN }
+}
 
 function classTone(className: string): "good" | "scrap" | "neutral" {
   const name = className.toLowerCase()
@@ -38,6 +65,15 @@ function ClassBadge({ className }: { className: string }) {
   )
 }
 
+function UnknownBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm font-semibold text-muted-foreground">
+      <CircleHelp className="size-3.5" />
+      Desconocido
+    </span>
+  )
+}
+
 export function ProductionPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -48,11 +84,16 @@ export function ProductionPage() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [predicting, setPredicting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rejection, setRejection] = useState<RejectionSettings>(loadRejection)
+  const [diagnostic, setDiagnostic] = useState<{ image: string; path: string; dir: string } | null>(null)
+  const [diagnosing, setDiagnosing] = useState(false)
   const inFlightRef = useRef(false)
 
-  // Asigna el stream al <video> en cuanto la cámara está lista. Antes se usaba
-  // onLoadedMetadata, que nunca llega a dispararse porque el video no tiene
-  // fuente hasta que ese mismo handler asigna srcObject.
+  useEffect(() => {
+    localStorage.setItem(REJECTION_KEY, JSON.stringify(rejection))
+  }, [rejection])
+
+  // Asigna el stream al <video> en cuanto la cámara está lista.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return undefined
@@ -81,7 +122,7 @@ export function ProductionPage() {
     try {
       const blob = await snapshotFrame(video, canvasRef.current)
       if (!blob) return
-      const result = await predict(blob)
+      const result = await predict(blob, { threshold: rejection.threshold, margin: rejection.margin })
       setPrediction(result)
       setError(null)
     } catch (predictionError) {
@@ -90,7 +131,39 @@ export function ProductionPage() {
       inFlightRef.current = false
       setPredicting(false)
     }
-  }, [])
+  }, [rejection.threshold, rejection.margin])
+
+  const runDiagnostic = useCallback(async () => {
+    const video = videoRef.current
+    if (!video || !video.videoWidth) return
+    setDiagnosing(true)
+    try {
+      const blob = await snapshotFrame(video, canvasRef.current)
+      if (!blob) return
+      const result = await predict(blob, {
+        threshold: rejection.threshold,
+        margin: rejection.margin,
+        saveDebug: true,
+      })
+      setPrediction(result)
+      if (result.debug) {
+        setDiagnostic({
+          image: result.debug.preprocessed_data_url,
+          path: result.debug.preprocessed,
+          dir: result.debug.dir,
+        })
+        toast.success("Imagen de diagnóstico guardada", {
+          description: `Gris 160×160 · ${result.debug.preprocessed}`,
+        })
+      } else {
+        toast.error("El servicio no devolvió la imagen de diagnóstico")
+      }
+    } catch (diagnosticError) {
+      toast.error(diagnosticError instanceof Error ? diagnosticError.message : "Error al guardar el diagnóstico")
+    } finally {
+      setDiagnosing(false)
+    }
+  }, [rejection.threshold, rejection.margin])
 
   useEffect(() => {
     if (mode !== "continuous" || camera.status !== "ready") return undefined
@@ -108,13 +181,7 @@ export function ProductionPage() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-3">
         <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black ring-1 ring-border">
-          <video
-            ref={videoRef}
-            className="size-full object-cover"
-            autoPlay
-            playsInline
-            muted
-          />
+          <video ref={videoRef} className="size-full object-cover" autoPlay playsInline muted />
 
           {camera.status === "requesting" && (
             <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/80 text-sm text-muted-foreground">
@@ -134,12 +201,7 @@ export function ProductionPage() {
 
           {prediction && camera.status === "ready" && (
             <div className="absolute left-3 top-3 flex flex-col items-start gap-1">
-              <ClassBadge className={prediction.class_name} />
-              {prediction.unsure && (
-                <span className="rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium text-amber-500">
-                  No seguro
-                </span>
-              )}
+              {prediction.unknown ? <UnknownBadge /> : <ClassBadge className={prediction.class_name} />}
             </div>
           )}
 
@@ -177,11 +239,20 @@ export function ProductionPage() {
             </button>
           </div>
 
-          {mode === "snapshot" && (
-            <Button variant="outline" onClick={() => void runPrediction()} disabled={camera.status !== "ready" || predicting}>
-              <CameraIcon /> Clasificar
+          <div className="flex items-center gap-2">
+            {mode === "snapshot" && (
+              <Button variant="outline" onClick={() => void runPrediction()} disabled={camera.status !== "ready" || predicting}>
+                <CameraIcon /> Clasificar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => void runDiagnostic()}
+              disabled={camera.status !== "ready" || diagnosing}
+            >
+              {diagnosing ? <Loader2 className="animate-spin" /> : <ScanEye />} Comprobar grises
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
@@ -191,7 +262,7 @@ export function ProductionPage() {
             <CardTitle>Resultado</CardTitle>
             <CardDescription>
               {available
-                ? `Umbral de confianza: ${Math.round((model?.threshold ?? 0.6) * 100)}%`
+                ? `Rechazo si confianza < ${Math.round(rejection.threshold * 100)}% o margen < ${Math.round(rejection.margin * 100)}%`
                 : "Modelo no disponible"}
             </CardDescription>
           </CardHeader>
@@ -217,9 +288,17 @@ export function ProductionPage() {
             {prediction && (
               <>
                 <div className="flex items-center justify-between">
-                  <ClassBadge className={prediction.class_name} />
+                  {prediction.unknown ? <UnknownBadge /> : <ClassBadge className={prediction.class_name} />}
                   <span className="text-2xl font-semibold tabular-nums">{formatPercent(prediction.confidence, 1)}</span>
                 </div>
+
+                {prediction.unknown && (
+                  <p className="text-xs text-muted-foreground">
+                    Clase más probable: «{prediction.class_name}» ({formatPercent(prediction.confidence, 1)}, margen{" "}
+                    {formatPercent(prediction.margin, 1)}). El objeto está por debajo de los umbrales de rechazo, así que
+                    se marca como desconocido en lugar de forzar una clase.
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   {sortedProbabilities.map(([className, probability]) => (
@@ -234,10 +313,72 @@ export function ProductionPage() {
                 </div>
 
                 <p className="text-center text-xs text-muted-foreground">
-                  Latencia: {formatLatency(prediction.latency_ms)}
+                  Margen {formatPercent(prediction.margin, 1)} · Latencia {formatLatency(prediction.latency_ms)}
                 </p>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {diagnostic && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Imagen que ve el modelo</CardTitle>
+              <CardDescription>Preprocesado exacto: escala de grises, 160×160, normalizado.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <img
+                src={diagnostic.image}
+                alt="Imagen en escala de grises que recibe el modelo"
+                className="mx-auto w-full max-w-[200px] rounded-lg border border-border"
+                style={{ imageRendering: "pixelated" }}
+              />
+              <p className="break-all text-center text-xs text-muted-foreground">{diagnostic.path}</p>
+              <p className="break-all text-center text-xs text-muted-foreground/70">Carpeta: {diagnostic.dir}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Rechazo de desconocidos</CardTitle>
+            <CardDescription>Ajusta cuándo el modelo debe abstenerse.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Confianza mínima</span>
+                <span className="tabular-nums">{Math.round(rejection.threshold * 100)}%</span>
+              </div>
+              <Slider
+                value={[rejection.threshold * 100]}
+                min={30}
+                max={95}
+                step={1}
+                onValueChange={(values) =>
+                  setRejection((current) => ({ ...current, threshold: (values[0] ?? current.threshold * 100) / 100 }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Margen mínimo (top1 − top2)</span>
+                <span className="tabular-nums">{Math.round(rejection.margin * 100)}%</span>
+              </div>
+              <Slider
+                value={[rejection.margin * 100]}
+                min={0}
+                max={50}
+                step={1}
+                onValueChange={(values) =>
+                  setRejection((current) => ({ ...current, margin: (values[0] ?? current.margin * 100) / 100 }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Si la confianza o el margen quedan por debajo, la pieza se marca como «Desconocido». Bajarlos reduce los
+              rechazos pero aumenta los falsos positivos.
+            </p>
           </CardContent>
         </Card>
 

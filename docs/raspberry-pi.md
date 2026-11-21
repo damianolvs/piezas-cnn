@@ -44,7 +44,39 @@ pnpm build
 pnpm start
 ```
 
-Abre `http://<ip-de-la-pi>:3001`.
+Abre `https://<ip-de-la-pi>:3001` (ver la sección HTTPS más abajo; el navegador
+solo permite la cámara en HTTPS o localhost).
+
+## HTTPS y acceso a la cámara (obligatorio desde otro dispositivo)
+
+La API de cámara del navegador (`getUserMedia`) **solo existe en un contexto
+seguro**: `https://` o `http://localhost`. Si abres el panel por
+`http://<ip-de-la-pi>:3001` desde tu portátil o móvil, el navegador oculta
+`navigator.mediaDevices` y la cámara no aparece (no es un problema de CORS).
+
+Solución: servir el panel por HTTPS con un certificado autofirmado.
+
+```bash
+# 1. Genera el certificado (incluye localhost y la IP de la LAN automáticamente)
+pnpm gen:certs
+#    o fuerza una IP concreta:
+pnpm gen:certs 192.168.1.50
+
+# 2. Compila y arranca por HTTPS
+pnpm build
+pnpm start:https
+```
+
+Abre `https://<ip-de-la-pi>:3001`. La primera vez el navegador avisará que el
+certificado es autofirmado: entra en "Avanzado" → "Continuar" (o instala el
+certificado como de confianza en el dispositivo).
+
+> Alternativa sin certificados: reenvía el puerto por SSH y abre
+> `http://localhost:3001` en tu equipo (localhost se considera contexto seguro):
+> `ssh -L 3001:localhost:3001 pi@<ip-de-la-pi>`.
+
+El servicio de inferencia (FastAPI, puerto 8000) no necesita HTTPS: solo lo
+consulta el servidor Node en la propia Pi.
 
 > Si el servicio de inferencia corre en otra máquina, define `FASTAPI_URL` al arrancar la API:
 > `FASTAPI_URL=http://<ip>:8000 pnpm start`.

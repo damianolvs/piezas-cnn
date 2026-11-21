@@ -58,9 +58,20 @@ export function useCamera() {
 
   const open = useCallback(
     async (preferredId = ""): Promise<MediaStream | null> => {
+      // La API de cámara solo existe en un "contexto seguro": HTTPS o localhost.
+      // Al abrir el panel por http://<IP-de-la-LAN>:3001 desde otra máquina, el
+      // navegador oculta navigator.mediaDevices. No es CORS.
+      if (!window.isSecureContext) {
+        setStatus("error")
+        setError(
+          "El navegador solo permite la cámara en HTTPS o localhost. Estás entrando por HTTP desde otra máquina: " +
+            "activa HTTPS en el servidor (pnpm gen:certs y pnpm start:https) o usa un túnel SSH a localhost.",
+        )
+        return null
+      }
       if (!navigator.mediaDevices?.getUserMedia) {
         setStatus("error")
-        setError("Este navegador no soporta acceso a la cámara. Usa Chrome, Edge o Safari actualizado.")
+        setError("Este navegador no expone la API de cámara. Prueba con Chrome, Edge o Safari actualizado.")
         return null
       }
 
