@@ -14,6 +14,15 @@ import { cn } from "@/lib/utils"
 
 type Mode = "continuous" | "snapshot"
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
 function classTone(className: string): "good" | "scrap" | "neutral" {
   const name = className.toLowerCase()
   if (name.includes("good") || name.includes("buen") || name.includes("complet")) return "good"
@@ -48,6 +57,7 @@ export function ProductionPage() {
   const [prediction, setPrediction] = useState<Prediction | null>(null)
   const [predicting, setPredicting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [snapshotPreview, setSnapshotPreview] = useState<string | null>(null)
   const inFlightRef = useRef(false)
 
   // Asigna el stream al <video> en cuanto la cámara está lista. Antes se usaba
@@ -73,7 +83,7 @@ export function ProductionPage() {
     }
   }, [camera.stream, videoRef])
 
-  const runPrediction = useCallback(async () => {
+  const runPrediction = useCallback(async (options?: { preview?: boolean }) => {
     const video = videoRef.current
     if (!video || !video.videoWidth || inFlightRef.current) return
     inFlightRef.current = true
@@ -81,6 +91,13 @@ export function ProductionPage() {
     try {
       const blob = await snapshotFrame(video, canvasRef.current)
       if (!blob) return
+      if (options?.preview) {
+        try {
+          setSnapshotPreview(await blobToDataUrl(blob))
+        } catch {
+          // la miniatura es opcional; no bloquea la inferencia
+        }
+      }
       const result = await predict(blob)
       setPrediction(result)
       setError(null)
@@ -179,7 +196,7 @@ export function ProductionPage() {
           </div>
 
           {mode === "snapshot" && (
-            <Button variant="outline" onClick={() => void runPrediction()} disabled={camera.status !== "ready" || predicting}>
+            <Button variant="outline" onClick={() => void runPrediction({ preview: true })} disabled={camera.status !== "ready" || predicting}>
               <CameraIcon /> Clasificar
             </Button>
           )}
@@ -187,6 +204,22 @@ export function ProductionPage() {
       </div>
 
       <div className="space-y-4">
+        {snapshotPreview && (
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Imagen de la instantánea</CardTitle>
+              <CardDescription>La foto exacta que se capturó y envió al modelo.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <img
+                src={snapshotPreview}
+                alt="Instantánea capturada"
+                className="mx-auto w-full max-w-[180px] rounded-lg border border-border"
+              />
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Resultado</CardTitle>
